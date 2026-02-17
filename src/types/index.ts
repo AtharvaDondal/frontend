@@ -27,6 +27,7 @@ export interface Enrollment {
   _id: string;
   tournament: string;
   player: Player;
+  status: "active" | "eliminated" | "withdrawn";
   totalPoints: number;
   matchesPlayed: number;
   wins: number;

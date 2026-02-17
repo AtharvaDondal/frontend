@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,12 +19,12 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, Swords, Clock, Crown } from "lucide-react";
+import { Users, Swords, Clock, Crown, CheckSquare, Trophy } from "lucide-react";
 import {
   getTournaments,
   getStandings,
   getMatches,
-  enrollPlayer,
+  enrollMultiplePlayers,
   createRound,
   updateMatchResult,
   getPlayers,
@@ -37,7 +39,7 @@ export default function TournamentDetailPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState("");
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
 
   const fetchData = async () => {
     if (!id) return;
@@ -60,6 +62,7 @@ export default function TournamentDetailPage() {
         ),
       );
     } catch (error) {
+      console.error("Failed to fetch data:", error);
       console.error("Failed to fetch data");
     } finally {
       setLoading(false);
@@ -70,15 +73,33 @@ export default function TournamentDetailPage() {
     fetchData();
   }, [id]);
 
-  const handleEnroll = async () => {
-    if (!id || !selectedPlayer) return;
+  const togglePlayerSelection = (playerId: string) => {
+    setSelectedPlayers((prev) =>
+      prev.includes(playerId)
+        ? prev.filter((id) => id !== playerId)
+        : [...prev, playerId],
+    );
+  };
+
+  const selectAllPlayers = () => {
+    if (selectedPlayers.length === players.length) {
+      setSelectedPlayers([]);
+    } else {
+      setSelectedPlayers(players.map((p) => p._id));
+    }
+  };
+
+  const handleEnrollMultiple = async () => {
+    if (!id || selectedPlayers.length === 0) return;
     try {
-      await enrollPlayer(id, selectedPlayer);
+      await enrollMultiplePlayers(id, selectedPlayers);
       setIsEnrollOpen(false);
-      setSelectedPlayer("");
+      setSelectedPlayers([]);
       fetchData();
+      alert(`Successfully enrolled ${selectedPlayers.length} players!`);
     } catch (error) {
-      alert("Failed to enroll player");
+      console.error("Failed to enroll players:", error);
+      alert("Failed to enroll players");
     }
   };
 
@@ -88,8 +109,9 @@ export default function TournamentDetailPage() {
       const response = await createRound(id);
       alert(response.data.message || "New round created!");
       fetchData();
-    } catch (error: any) {
-      alert(error.response?.data?.message || "Failed to create round");
+    } catch (error: unknown) {
+      console.log(error);
+      alert("Failed to create round");
     }
   };
 
@@ -102,7 +124,18 @@ export default function TournamentDetailPage() {
       await updateMatchResult(matchId, { result, duration });
       fetchData();
     } catch (error) {
+      console.error("Failed to update match result:", error);
       alert("Failed to update match");
+    }
+  };
+
+  const handleAutoResult = async (matchId: string) => {
+    try {
+      await updateMatchResult(matchId, { auto: true }); // Send auto: true
+      fetchData(); // Refresh to show result
+    } catch (error) {
+      console.error("Failed to generate auto result:", error);
+      alert("Failed to generate auto result");
     }
   };
 
@@ -113,6 +146,20 @@ export default function TournamentDetailPage() {
   const currentRoundMatches = matches.filter(
     (m) => m.round === tournament.currentRound,
   );
+
+  const isCompleted = tournament.status === "completed";
+
+  // Check if current round has pending matches
+  const hasPendingMatches = currentRoundMatches.some(
+    (m) => m.result === "pending",
+  );
+
+  // Check if max rounds reached
+  const isMaxRoundsReached = tournament.currentRound >= tournament.maxRounds;
+
+  // Determine if can start next round
+  // const canStartNextRound =
+  //   !isCompleted && !hasPendingMatches && !isMaxRoundsReached;
 
   return (
     <div className="space-y-6">
@@ -140,12 +187,30 @@ export default function TournamentDetailPage() {
         <div className="flex gap-2">
           <Button onClick={() => setIsEnrollOpen(true)} variant="outline">
             <Users className="w-4 h-4 mr-2" />
-            Enroll Player
+            Enroll Players
           </Button>
-          <Button onClick={handleCreateRound}>
-            <Swords className="w-4 h-4 mr-2" />
-            Start Next Round
-          </Button>
+
+          {isCompleted ? (
+            <Button disabled variant="secondary">
+              <Trophy className="w-4 h-4 mr-2" />
+              Tournament Completed
+            </Button>
+          ) : hasPendingMatches ? (
+            <Button disabled variant="secondary">
+              <Clock className="w-4 h-4 mr-2" />
+              Complete Current Round
+            </Button>
+          ) : isMaxRoundsReached ? (
+            <Button disabled variant="secondary">
+              <Trophy className="w-4 h-4 mr-2" />
+              Max Rounds Reached
+            </Button>
+          ) : (
+            <Button onClick={handleCreateRound}>
+              <Swords className="w-4 h-4 mr-2" />
+              Start Next Round
+            </Button>
+          )}
         </div>
       </div>
 
@@ -157,6 +222,74 @@ export default function TournamentDetailPage() {
         </TabsList>
 
         <TabsContent value="standings" className="space-y-4">
+          {/* WINNER PODIUM - Show top 3 */}
+          {tournament.status !== "upcoming" && standings.length >= 3 ? (
+            <div className="bg-gradient-to-b from-slate-50 to-white rounded-2xl p-6 mb-6">
+              <h2 className="text-xl font-bold text-center mb-6 text-slate-800">
+                🏆 Top 3 Winners 🏆
+              </h2>
+
+              <div className="flex justify-center items-end gap-4">
+                {/* 2nd Place */}
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-24 bg-gray-300 rounded-t-lg flex items-center justify-center text-3xl">
+                    🥈
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-b-lg p-2 w-24 text-center -mt-1">
+                    <p className="font-bold text-xs truncate">
+                      {standings[1].player.name}
+                    </p>
+                    <p className="text-lg font-bold text-blue-600">
+                      {standings[1].totalPoints}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 1st Place - Tallest */}
+                <div className="flex flex-col items-center -mt-4">
+                  <div className="w-24 h-32 bg-yellow-300 rounded-t-lg flex items-center justify-center text-4xl relative">
+                    🥇
+                    <Crown className="absolute -top-3 w-6 h-6 text-yellow-600 fill-yellow-600" />
+                  </div>
+                  <div className="bg-white border-2 border-yellow-300 rounded-b-lg p-2 w-28 text-center -mt-1">
+                    <p className="font-bold text-sm truncate">
+                      {standings[0].player.name}
+                    </p>
+                    <p className="text-xl font-bold text-blue-600">
+                      {standings[0].totalPoints}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3rd Place */}
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 bg-orange-300 rounded-t-lg flex items-center justify-center text-3xl">
+                    🥉
+                  </div>
+                  <div className="bg-white border border-orange-200 rounded-b-lg p-2 w-24 text-center -mt-1">
+                    <p className="font-bold text-xs truncate">
+                      {standings[2].player.name}
+                    </p>
+                    <p className="text-lg font-bold text-blue-600">
+                      {standings[2].totalPoints}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : tournament.status === "upcoming" && standings.length > 0 ? (
+            <div className="bg-blue-50 rounded-2xl p-8 mb-6 text-center">
+              <Swords className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-slate-800">
+                Tournament Starting Soon
+              </h2>
+              <p className="text-slate-600 mt-2">
+                {standings.length} players enrolled. Click "Start Next Round" to
+                begin!
+              </p>
+            </div>
+          ) : null}
+          {/* FULL STANDINGS TABLE */}
           <div className="bg-white rounded-lg shadow border border-slate-200">
             <Table>
               <TableHeader>
@@ -172,16 +305,51 @@ export default function TournamentDetailPage() {
               </TableHeader>
               <TableBody>
                 {standings.map((standing, index) => (
-                  <TableRow key={standing._id}>
+                  <TableRow
+                    key={standing._id}
+                    className={
+                      standing.status === "eliminated"
+                        ? "bg-red-50 opacity-60"
+                        : index < 3
+                          ? "bg-yellow-50/30"
+                          : ""
+                    }
+                  >
                     <TableCell className="font-medium">
-                      {index === 0 && (
-                        <Crown className="w-5 h-5 text-yellow-500 inline mr-1" />
+                      {/* Rank with medal for top 3 */}
+                      {index === 0 && <span className="text-xl mr-1">🥇</span>}
+                      {index === 1 && <span className="text-xl mr-1">🥈</span>}
+                      {index === 2 && <span className="text-xl mr-1">🥉</span>}
+                      {index > 2 && index + 1}
+
+                      {/* Eliminated badge */}
+                      {standing.status === "eliminated" && (
+                        <Badge variant="destructive" className="ml-2 text-xs">
+                          Out
+                        </Badge>
                       )}
-                      {index + 1}
                     </TableCell>
+
                     <TableCell className="font-medium">
                       {standing.player.name}
+                      {/* Winner badge for 1st place */}
+                      {index === 0 && (
+                        <Badge className="ml-2 bg-yellow-500 text-white">
+                          Champion
+                        </Badge>
+                      )}
+                      {index === 1 && (
+                        <Badge className="ml-2 bg-gray-400 text-white">
+                          Runner-up
+                        </Badge>
+                      )}
+                      {index === 2 && (
+                        <Badge className="ml-2 bg-orange-400 text-white">
+                          3rd Place
+                        </Badge>
+                      )}
                     </TableCell>
+
                     <TableCell className="text-lg font-bold text-blue-600">
                       {standing.totalPoints}
                     </TableCell>
@@ -276,32 +444,84 @@ export default function TournamentDetailPage() {
 
                   {match.result === "pending" ? (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            handleMatchResult(match._id, "player1-win", 30)
-                          }
-                        >
-                          {match.player1.name} Wins
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleMatchResult(match._id, "draw", 45)
-                          }
-                        >
-                          Draw
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            handleMatchResult(match._id, "player2-win", 30)
-                          }
-                        >
-                          {match.player2.name} Wins
-                        </Button>
+                      {/*  AUTO RESULT BUTTON HERE */}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full mb-2"
+                        onClick={() => handleAutoResult(match._id)}
+                      >
+                        🎲 Auto Result
+                      </Button>
+
+                      <div className="space-y-2">
+                        {/* Duration Input - MOVED ABOVE BUTTONS */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <Clock className="w-4 h-4" />
+                          <input
+                            type="number"
+                            placeholder="Duration (minutes)"
+                            className="border rounded px-2 py-1 text-sm w-full"
+                            id={`duration-${match._id}`}
+                            defaultValue="30"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const input = document.getElementById(
+                                `duration-${match._id}`,
+                              ) as HTMLInputElement;
+                              const duration = input?.value
+                                ? parseInt(input.value)
+                                : 30;
+                              handleMatchResult(
+                                match._id,
+                                "player1-win",
+                                duration,
+                              );
+                            }}
+                          >
+                            {match.player1.name} Wins
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const input = document.getElementById(
+                                `duration-${match._id}`,
+                              ) as HTMLInputElement;
+                              const duration = input?.value
+                                ? parseInt(input.value)
+                                : 30;
+                              handleMatchResult(match._id, "draw", duration);
+                            }}
+                          >
+                            Draw
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const input = document.getElementById(
+                                `duration-${match._id}`,
+                              ) as HTMLInputElement;
+                              const duration = input?.value
+                                ? parseInt(input.value)
+                                : 30;
+                              handleMatchResult(
+                                match._id,
+                                "player2-win",
+                                duration,
+                              );
+                            }}
+                          >
+                            {match.player2.name} Wins
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
@@ -330,37 +550,63 @@ export default function TournamentDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Enroll Player Dialog */}
+      {/* Multiple Enrollment Dialog */}
       <Dialog open={isEnrollOpen} onOpenChange={setIsEnrollOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Enroll Player in Tournament</DialogTitle>
+            <DialogTitle>Enroll Players in Tournament</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4">
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {players.map((player) => (
-                <div
-                  key={player._id}
-                  className={`p-3 border rounded cursor-pointer hover:bg-slate-50 ${
-                    selectedPlayer === player._id
-                      ? "border-blue-500 bg-blue-50"
-                      : ""
-                  }`}
-                  onClick={() => setSelectedPlayer(player._id)}
-                >
-                  <div className="font-medium">{player.name}</div>
-                  <div className="text-sm text-slate-500">
-                    Rating: {player.rating}
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <span className="text-sm text-slate-600">
+                {selectedPlayers.length} of {players.length} selected
+              </span>
+              <Button variant="outline" size="sm" onClick={selectAllPlayers}>
+                <CheckSquare className="w-4 h-4 mr-2" />
+                {selectedPlayers.length === players.length
+                  ? "Deselect All"
+                  : "Select All"}
+              </Button>
             </div>
+
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {players.length === 0 ? (
+                <p className="text-center text-slate-500 py-4">
+                  No available players to enroll
+                </p>
+              ) : (
+                players.map((player) => (
+                  <div
+                    key={player._id}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                    onClick={() => togglePlayerSelection(player._id)}
+                  >
+                    <Checkbox
+                      checked={selectedPlayers.includes(player._id)}
+                      onCheckedChange={() => togglePlayerSelection(player._id)}
+                    />
+                    <div className="flex-1">
+                      <Label className="font-medium cursor-pointer">
+                        {player.name}
+                      </Label>
+                      <p className="text-sm text-slate-500">
+                        Rating: {player.rating} • {player.country}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
             <Button
-              onClick={handleEnroll}
-              disabled={!selectedPlayer}
+              onClick={handleEnrollMultiple}
+              disabled={selectedPlayers.length === 0}
               className="w-full"
             >
-              Enroll Selected Player
+              <Users className="w-4 h-4 mr-2" />
+              Enroll {selectedPlayers.length} Player
+              {selectedPlayers.length !== 1 ? "s" : ""}
             </Button>
           </div>
         </DialogContent>

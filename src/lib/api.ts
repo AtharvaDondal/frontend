@@ -27,7 +27,8 @@ export const deletePlayer = (id: string) => api.delete(`/players/${id}`);
 
 // Tournaments
 export const getTournaments = () => api.get("/tournaments");
-export const createTournament = (data: TournamentData) => api.post("/tournaments", data);
+export const createTournament = (data: TournamentData) =>
+  api.post("/tournaments", data);
 export const updateTournament = (id: string, data: TournamentData) =>
   api.put(`/tournaments/${id}`, data);
 export const deleteTournament = (id: string) =>
@@ -36,6 +37,11 @@ export const enrollPlayer = (tournamentId: string, playerId: string) =>
   api.post("/tournaments/enroll", { tournamentId, playerId });
 export const getStandings = (tournamentId: string) =>
   api.get(`/tournaments/${tournamentId}/standings`);
+
+export const enrollMultiplePlayers = (
+  tournamentId: string,
+  playerIds: string[],
+) => api.post("/tournaments/enroll-multiple", { tournamentId, playerIds });
 
 // Matches
 export const getMatches = (tournamentId: string) =>

@@ -63,6 +63,7 @@ export default function TournamentsPage() {
       await deleteTournament(id);
       fetchTournaments();
     } catch (error) {
+      console.log("Failed to delete tournament", error);
       console.error("Delete failed");
     }
   };
