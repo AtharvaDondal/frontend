@@ -149,6 +149,10 @@ export default function TournamentDetailPage() {
 
   const isCompleted = tournament.status === "completed";
 
+  const activePlayersCount = standings.filter(
+    (s) => s.status === "active",
+  ).length;
+
   // Check if current round has pending matches
   const hasPendingMatches = currentRoundMatches.some(
     (m) => m.result === "pending",
@@ -190,7 +194,7 @@ export default function TournamentDetailPage() {
             Enroll Players
           </Button>
 
-          {isCompleted ? (
+          {isCompleted || activePlayersCount <= 1 ? (
             <Button disabled variant="secondary">
               <Trophy className="w-4 h-4 mr-2" />
               Tournament Completed
@@ -308,7 +312,7 @@ export default function TournamentDetailPage() {
                   <TableRow
                     key={standing._id}
                     className={
-                      standing.status === "eliminated"
+                      standing.status === "eliminated" && index >= 3
                         ? "bg-red-50 opacity-60"
                         : index < 3
                           ? "bg-yellow-50/30"
@@ -322,8 +326,8 @@ export default function TournamentDetailPage() {
                       {index === 2 && <span className="text-xl mr-1">🥉</span>}
                       {index > 2 && index + 1}
 
-                      {/* Eliminated badge */}
-                      {standing.status === "eliminated" && (
+                      {/* Eliminated badge - HIDDEN for top 3 */}
+                      {standing.status === "eliminated" && index >= 3 && (
                         <Badge variant="destructive" className="ml-2 text-xs">
                           Out
                         </Badge>

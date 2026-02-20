@@ -32,7 +32,7 @@ export default function TournamentsPage() {
       const response = await getTournaments();
       setTournaments(response.data);
     } catch (error) {
-      console.error("Failed to fetch tournaments");
+      console.error("Failed to fetch tournaments", error);
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export default function TournamentsPage() {
       setFormData({ name: "", description: "", startDate: "", maxRounds: 7 });
       fetchTournaments();
     } catch (error) {
-      console.error("Failed to create tournament");
+      console.error("Failed to create tournament", error);
     }
   };
 
@@ -163,57 +163,73 @@ export default function TournamentsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tournaments.map((tournament) => (
-          <div
-            key={tournament._id}
-            className="bg-white rounded-lg shadow border border-slate-200 p-6"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {tournament.name}
-                </h3>
-                <Badge className={`mt-2 ${getStatusColor(tournament.status)}`}>
-                  {tournament.status}
-                </Badge>
-              </div>
-              <div className="flex gap-2">
-                <Link to={`/tournaments/${tournament._id}`}>
-                  <Button variant="ghost" size="sm">
-                    <Eye className="w-4 h-4" />
+        {tournaments.map((tournament) => {
+          const playerCount = tournament.players?.length || 0;
+          const effectiveMaxRounds =
+            tournament.format === "knockout"
+              ? Math.ceil(Math.log2(playerCount))
+              : tournament.maxRounds;
+
+          // Check if tournament should be completed
+          const isCompleted =
+            tournament.status === "completed" ||
+            (tournament.format === "knockout" &&
+              tournament.currentRound >= effectiveMaxRounds);
+
+          const displayStatus = isCompleted ? "completed" : tournament.status;
+
+          return (
+            <div
+              key={tournament._id}
+              className="bg-white rounded-lg shadow border border-slate-200 p-6"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {tournament.name}
+                  </h3>
+                  <Badge className={`mt-2 ${getStatusColor(displayStatus)}`}>
+                    {displayStatus}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Link to={`/tournaments/${tournament._id}`}>
+                    <Button variant="ghost" size="sm">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(tournament._id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(tournament._id)}
-                >
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </Button>
+                </div>
+              </div>
+
+              <p className="text-slate-600 text-sm mb-4">
+                {tournament.description}
+              </p>
+
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <div className="flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {tournament.players.length} players
+                </div>
+                <div>
+                  Round {tournament.currentRound} / {effectiveMaxRounds}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="text-xs text-slate-500">
+                  Starts: {new Date(tournament.startDate).toLocaleDateString()}
+                </div>
               </div>
             </div>
-
-            <p className="text-slate-600 text-sm mb-4">
-              {tournament.description}
-            </p>
-
-            <div className="flex items-center justify-between text-sm text-slate-500">
-              <div className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
-                {tournament.players.length} players
-              </div>
-              <div>
-                Round {tournament.currentRound} / {tournament.maxRounds}
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="text-xs text-slate-500">
-                Starts: {new Date(tournament.startDate).toLocaleDateString()}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
