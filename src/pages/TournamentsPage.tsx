@@ -164,10 +164,10 @@ export default function TournamentsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tournaments.map((tournament) => {
-          const playerCount = tournament.players?.length || 0;
+          // const playerCount = tournament.players?.length || 0;
           const effectiveMaxRounds =
             tournament.format === "knockout"
-              ? Math.ceil(Math.log2(playerCount))
+              ? Math.ceil(Math.log2(tournament.players.length))
               : tournament.maxRounds;
 
           // Check if tournament should be completed
