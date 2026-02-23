@@ -174,6 +174,8 @@ export default function TournamentsPage() {
           const isCompleted =
             tournament.status === "completed" ||
             (tournament.format === "knockout" &&
+              tournament.currentRound >= effectiveMaxRounds) ||
+            (tournament.maxLosses === 1 &&
               tournament.currentRound >= effectiveMaxRounds);
 
           const displayStatus = isCompleted ? "completed" : tournament.status;

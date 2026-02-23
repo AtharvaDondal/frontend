@@ -21,6 +21,7 @@ export interface Tournament {
   currentRound: number;
   players: Player[];
   format: string;
+  maxLosses: number;
 }
 
 export interface Enrollment {

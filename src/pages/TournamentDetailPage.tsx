@@ -327,11 +327,11 @@ export default function TournamentDetailPage() {
                       {index > 2 && index + 1}
 
                       {/* Eliminated badge - HIDDEN for top 3 */}
-                      {standing.status === "eliminated" && index >= 3 && (
+                      {/* {standing.status === "eliminated" && index >= 3 && (
                         <Badge variant="destructive" className="ml-2 text-xs">
                           Out
                         </Badge>
-                      )}
+                      )} */}
                     </TableCell>
 
                     <TableCell className="font-medium">
